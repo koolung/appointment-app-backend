@@ -166,7 +166,7 @@ export class AvailabilityService {
       if (slotEnd <= endTime) {
         // Check if this slot conflicts with any appointment
         const isBooked = appointments.some(
-          (apt) =>
+          (apt: any) =>
             (currentTime >= apt.startTime && currentTime < apt.endTime) ||
             (slotEnd > apt.startTime && slotEnd <= apt.endTime) ||
             (currentTime <= apt.startTime && slotEnd >= apt.endTime),

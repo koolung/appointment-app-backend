@@ -25,7 +25,7 @@ export class ReportsService {
 
     // Group by requested granularity
     const grouped: Record<string, number> = {};
-    payments.forEach((payment) => {
+    payments.forEach((payment: any) => {
       const date = new Date(payment.createdAt);
       let key = '';
 
@@ -68,8 +68,8 @@ export class ReportsService {
     });
 
     const byService: Record<string, number> = {};
-    payments.forEach((payment) => {
-      payment.appointment.services.forEach((appService) => {
+    payments.forEach((payment: any) => {
+      payment.appointment.services.forEach((appService: any) => {
         const serviceName = appService.service.name;
         byService[serviceName] = (byService[serviceName] || 0) + appService.price;
       });
@@ -101,7 +101,7 @@ export class ReportsService {
     });
 
     const byEmployee: Record<string, number> = {};
-    payments.forEach((payment) => {
+    payments.forEach((payment: any) => {
       const employeeName = `${payment.appointment.employee.user.firstName} ${payment.appointment.employee.user.lastName}`;
       byEmployee[employeeName] = (byEmployee[employeeName] || 0) + payment.amount;
     });
@@ -125,13 +125,13 @@ export class ReportsService {
       },
     });
 
-    return employees.map((emp) => ({
+    return employees.map((emp: any) => ({
       id: emp.id,
       name: `${emp.user.firstName} ${emp.user.lastName}`,
       totalAppointments: emp.appointments.length,
-      completedAppointments: emp.appointments.filter((a) => a.status === 'COMPLETED').length,
-      cancelledAppointments: emp.appointments.filter((a) => a.status === 'CANCELLED').length,
-      noShowAppointments: emp.appointments.filter((a) => a.status === 'NO_SHOW').length,
+      completedAppointments: emp.appointments.filter((a: any) => a.status === 'COMPLETED').length,
+      cancelledAppointments: emp.appointments.filter((a: any) => a.status === 'CANCELLED').length,
+      noShowAppointments: emp.appointments.filter((a: any) => a.status === 'NO_SHOW').length,
       performance: emp.performance,
     }));
   }
@@ -155,7 +155,7 @@ export class ReportsService {
     });
 
     const clients: Record<string, { count: number; isRepeat: boolean }> = {};
-    appointments.forEach((apt) => {
+    appointments.forEach((apt: any) => {
       const clientId = apt.clientId;
       if (!clients[clientId]) {
         clients[clientId] = {
@@ -192,7 +192,7 @@ export class ReportsService {
       return 0;
     }
 
-    const total = payments.reduce((sum, p) => sum + p.amount, 0);
+    const total = payments.reduce((sum: number, p: any) => sum + p.amount, 0);
     return (total / payments.length).toFixed(2);
   }
 }

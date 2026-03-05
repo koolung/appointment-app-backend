@@ -56,7 +56,7 @@ export class NotificationsService {
       minute: '2-digit',
       hour12: true,
     });
-    const totalPrice = appointment.services.reduce((sum, s) => sum + (s.service.price || 0), 0);
+    const totalPrice = appointment.services.reduce((sum: number, s: any) => sum + (s.service.price || 0), 0);
 
     const subject = 'Your Booking Confirmation - Beautelia Hair';
     const html = `
@@ -230,7 +230,7 @@ export class NotificationsService {
 
                 <div class="detail-row">
                   <span class="detail-label">⏱️ Duration</span>
-                  <span class="detail-value"><strong>${appointment.services.reduce((sum, s) => sum + (s.service.baseDuration || 0), 0)} minutes</strong></span>
+                  <span class="detail-value"><strong>${appointment.services.reduce((sum: number, s: any) => sum + (s.service.baseDuration || 0), 0)} minutes</strong></span>
                 </div>
               </div>
 
@@ -238,7 +238,7 @@ export class NotificationsService {
               <div class="services-list">
                 ${appointment.services
                   .map(
-                    (s) => `
+                    (s: any) => `
                   <div class="service-item">
                     <span class="service-name">${s.service.name}</span>
                     <span class="service-price">$${(s.service.price || 0).toFixed(2)}</span>
@@ -318,7 +318,7 @@ export class NotificationsService {
       <ul>
         <li><strong>Date:</strong> ${appointment.startTime.toLocaleDateString()}</li>
         <li><strong>Time:</strong> ${appointment.startTime.toLocaleTimeString()} - ${appointment.endTime.toLocaleTimeString()}</li>
-        <li><strong>Services:</strong> ${appointment.services.map((s) => s.service.name).join(', ')}</li>
+        <li><strong>Services:</strong> ${appointment.services.map((s: any) => s.service.name).join(', ')}</li>
       </ul>
     `;
 
@@ -398,7 +398,7 @@ export class NotificationsService {
         <li><strong>Date:</strong> ${appointment.startTime.toLocaleDateString()}</li>
         <li><strong>Time:</strong> ${appointment.startTime.toLocaleTimeString()}</li>
         <li><strong>Stylist:</strong> ${appointment.employee.user.firstName} ${appointment.employee.user.lastName}</li>
-        <li><strong>Services:</strong> ${appointment.services.map((s) => s.service.name).join(', ')}</li>
+        <li><strong>Services:</strong> ${appointment.services.map((s: any) => s.service.name).join(', ')}</li>
       </ul>
       <p>See you soon!</p>
     `;
