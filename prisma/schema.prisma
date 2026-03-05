@@ -1,0 +1,382 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  password  String
+  firstName String?
+  lastName  String?
+  phone     String?
+  avatar    String?
+  role      String   @default("CLIENT") // ADMIN, EMPLOYEE, RECEPTION, CLIENT
+  
+  // Relations
+  employee  Employee?
+  client    Client?
+  sessions  Session[]
+  auditLogs AuditLog[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Removed enum Role - using String field instead
+
+model Employee {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  position  String?
+  bio       String?
+  hourlyRate Float?
+  
+  // Relations
+  appointmentSlots AppointmentSlot[]
+  employeeServices EmployeeService[]
+  appointments     Appointment[]
+  availabilityRules AvailabilityRule[]
+  performance      EmployeePerformance?
+  
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Client {
+  id        String   @id @default(cuid())
+  userId    String?  @unique
+  user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // Preferences
+  preferences String? // JSON stored
+  
+  // Relations
+  appointments Appointment[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  categoryId  String?
+  category    ServiceCategory? @relation(fields: [categoryId], references: [id])
+  
+  price       Float
+  baseDuration Int // in minutes
+  bufferBefore Int @default(0) // in minutes
+  bufferAfter  Int @default(0) // in minutes
+  
+  // Relations
+  employeeServices EmployeeService[]
+  appointments AppointmentService[]
+  
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([categoryId])
+}
+
+model EmployeeService {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  serviceId   String
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([employeeId, serviceId])
+  @@index([serviceId])
+}
+
+model ServiceCategory {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  description String?
+  services  Service[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AvailabilityRule {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  // Weekly recurring rule (0=Monday, 6=Sunday)
+  dayOfWeek   Int
+  startTime   String // HH:mm format
+  endTime     String // HH:mm format
+  
+  isException Boolean @default(false)
+  exceptionDate DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([exceptionDate])
+}
+
+model Appointment {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id])
+  
+  startTime   DateTime
+  endTime     DateTime
+  
+  status      String @default("PENDING") // PENDING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED, NO_SHOW
+  bookingSource String @default("ADMIN") // ADMIN, WEB, PHONE, AI
+  clientTimezone String @default("UTC") // Client's timezone when booking (e.g., America/New_York)
+  notes       String?
+  
+  // Relations
+  services    AppointmentService[]
+  payments    Payment[]
+  changes     AppointmentChange[]
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([employeeId])
+  @@index([startTime])
+  @@index([status])
+}
+
+model AppointmentChange {
+  id              String   @id @default(cuid())
+  appointmentId   String
+  appointment     Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  
+  fieldName       String   // status, notes, startTime, endTime, etc.
+  oldValue        String?
+  newValue        String?
+  changedBy       String?  // user ID or name
+  
+  createdAt       DateTime @default(now())
+
+  @@index([appointmentId])
+  @@index([createdAt])
+}
+
+model AppointmentService {
+  id            String   @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  
+  serviceId     String
+  service       Service  @relation(fields: [serviceId], references: [id])
+  
+  duration      Int // actual duration in minutes
+  price         Float // price at time of booking
+  
+  @@unique([appointmentId, serviceId])
+  @@index([serviceId])
+}
+
+model AppointmentSlot {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  startTime   DateTime
+  endTime     DateTime
+  isAvailable Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([employeeId])
+  @@index([startTime])
+}
+
+// Removed enum AppointmentStatus - using String field instead
+
+model Payment {
+  id            String   @id @default(cuid())
+  appointmentId String
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  
+  amount        Float
+  method        String // CASH, CARD, ONLINE
+  status        String @default("PENDING") // PENDING, COMPLETED, FAILED, REFUNDED
+  stripeId      String?
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([appointmentId])
+  @@index([stripeId])
+}
+
+// Removed enums PaymentMethod and PaymentStatus - using String fields instead
+
+model Revenue {
+  id          String   @id @default(cuid())
+  
+  appointmentId String?
+  serviceId   String?
+  employeeId  String?
+  
+  amount      Float
+  date        DateTime
+  notes       String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([date])
+  @@index([employeeId])
+  @@index([serviceId])
+}
+
+model EmployeePerformance {
+  id          String   @id @default(cuid())
+  employeeId  String   @unique
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  
+  totalAppointments    Int @default(0)
+  completedAppointments Int @default(0)
+  cancelledAppointments Int @default(0)
+  noShowAppointments    Int @default(0)
+  
+  totalRevenue         Float @default(0)
+  totalTips            Float @default(0)
+  averageTicketSize    Float @default(0)
+  
+  utilizationPercentage Float @default(0)
+  avgServiceDuration   Int @default(0)
+  
+  cancellationRate     Float @default(0)
+  noShowRate           Float @default(0)
+  
+  updatedAt   DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  action    String
+  entity    String
+  entityId  String?
+  changes   String? // JSON
+  
+  ipAddress String?
+  userAgent String?
+  
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Settings {
+  id                    String   @id @default("singleton")
+  salonName             String   @default("My Salon")
+  email                 String   @default("")
+  phone                 String   @default("")
+  address               String   @default("")
+  openingTime           String   @default("09:00")
+  closingTime           String   @default("18:00")
+  bookingNotifications  Boolean  @default(true)
+  appointmentReminders  Boolean  @default(true)
+  minCancellationHours  Int      @default(24)
+  bookingWarningMessage String   @default("Please note: Appointments cancelled less than 24 hours before the scheduled time may incur a cancellation fee.")
+  
+  updatedAt             DateTime @updatedAt
+}
+
+model CalendarIntegration {
+  id        String   @id @default(cuid())
+  employeeId String?
+  
+  type      String // GOOGLE, MICROSOFT, DIKIDI, JANE
+  externalId String
+  accessToken String?
+  refreshToken String?
+  expiresAt DateTime?
+  
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([employeeId])
+}
+
+// Removed enum CalendarType - using String field instead
+
+model ExternalBooking {
+  id        String   @id @default(cuid())
+  source    String // "google_calendar", "dikidi", etc.
+  externalId String @unique
+  
+  title     String
+  description String?
+  startTime DateTime
+  endTime   DateTime
+  
+  syncedAppointmentId String?
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([externalId])
+  @@index([startTime])
+}
+
+model AIInteraction {
+  id        String   @id @default(cuid())
+  sessionId String
+  
+  type      String // "voice", "chat"
+  content   String
+  
+  bookingAttempted Boolean @default(false)
+  bookingSucceeded Boolean @default(false)
+  
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([createdAt])
+}
