@@ -5,8 +5,16 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  const corsOrigins = [
+    'http://localhost:3000',
+    'https://appointment-app-frontend-3h9qc8iyl-koolungs-projects.vercel.app',
+  ];
+  if (process.env.CORS_ORIGIN) {
+    corsOrigins.push(process.env.CORS_ORIGIN);
+  }
+
   app.enableCors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    origin: corsOrigins,
     credentials: true,
   });
 
