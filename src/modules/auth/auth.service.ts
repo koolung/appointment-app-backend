@@ -18,11 +18,15 @@ export class AuthService {
     this.transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'localhost',
       port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: true, // SSL/TLS
+      secure: process.env.SMTP_SECURE !== 'false', // SSL/TLS - defaults to true
       auth: {
         user: process.env.SMTP_USER || 'test',
         pass: process.env.SMTP_PASSWORD || 'test',
       },
+      connectionTimeout: 10000, // 10 seconds timeout
+      socketTimeout: 10000, // 10 seconds timeout
+      logger: process.env.NODE_ENV === 'development', // Log in dev mode
+      debug: process.env.NODE_ENV === 'development', // Debug in dev mode
     });
   }
 
@@ -244,12 +248,15 @@ export class AuthService {
         `,
       };
 
-      await this.transporter.sendMail(mailOptions);
-      console.log('Password reset email sent to:', email);
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('Password reset email sent to:', email, 'Message ID:', info.messageId);
+      return info;
     } catch (error) {
-      console.error('Error sending password reset email:', error);
-      // Don't throw error here - we don't want to expose email sending failures to users
-      // In production, you'd want to log this to an error tracking service
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error sending password reset email to', email, ':', errorMessage);
+      throw new BadRequestException(
+        `Failed to send password reset email: ${errorMessage}. Please check your email configuration.`
+      );
     }
   }
 }
