@@ -235,6 +235,10 @@ export class AppointmentsService {
       finalEmployeeId = data.employeeId;
 
       // Validate that employee is available
+      console.log(
+        `Checking availability for employee ${finalEmployeeId}: ${data.startTime} to ${data.endTime}`
+      );
+      
       const isAvailable = await this.availabilityService.checkAvailability(
         finalEmployeeId,
         data.startTime,

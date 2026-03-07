@@ -98,11 +98,18 @@ export class AvailabilityService {
         },
       });
 
+      // If no rule exists, assume employee is available (default behavior)
       if (!weeklyRule) {
-        return false;
+        console.log(`No availability rule found for employee ${employeeId} on day ${dayOfWeek}`);
+        return true;
       }
 
-      return startTimeStr >= weeklyRule.startTime && endTimeStr <= weeklyRule.endTime;
+      const isAvailable = startTimeStr >= weeklyRule.startTime && endTimeStr <= weeklyRule.endTime;
+      console.log(
+        `Availability check for employee ${employeeId}:`,
+        `Day: ${dayOfWeek}, Time: ${startTimeStr}-${endTimeStr}, Rule: ${weeklyRule.startTime}-${weeklyRule.endTime}, Available: ${isAvailable}`
+      );
+      return isAvailable;
     } catch (error) {
       console.error('Error checking availability:', error);
       return false;
