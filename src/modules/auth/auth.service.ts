@@ -259,4 +259,53 @@ export class AuthService {
       );
     }
   }
+
+  async testSmtpEmail() {
+    try {
+      console.log('Testing SMTP with config:', {
+        host: process.env.SMTP_HOST,
+        port: process.env.SMTP_PORT,
+        user: process.env.SMTP_USER,
+        from: process.env.SMTP_FROM,
+      });
+
+      const mailOptions = {
+        from: process.env.SMTP_FROM || 'noreply@salon-app.com',
+        to: 'info@bedfordwebservices.com',
+        subject: 'Salon App SMTP Test',
+        html: `
+          <h2>SMTP Test Email</h2>
+          <p>This is a test email from the Salon Appointment App</p>
+          <p><strong>Sent at:</strong> ${new Date().toISOString()}</p>
+          <p><strong>From Email:</strong> ${process.env.SMTP_FROM}</p>
+          <p><strong>Environment:</strong> ${process.env.NODE_ENV}</p>
+          <p>If you received this, your SMTP configuration is working correctly!</p>
+        `,
+      };
+
+      console.log('Sending test email to info@bedfordwebservices.com...');
+      const info = await this.transporter.sendMail(mailOptions);
+      console.log('Test email sent successfully! Message ID:', info.messageId);
+      
+      return {
+        success: true,
+        message: 'Test email sent successfully to info@bedfordwebservices.com',
+        messageId: info.messageId,
+        timestamp: new Date().toISOString(),
+      };
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('Error sending test email:', errorMessage);
+      throw new BadRequestException({
+        success: false,
+        message: `Failed to send test email: ${errorMessage}`,
+        smtpConfig: {
+          host: process.env.SMTP_HOST,
+          port: process.env.SMTP_PORT,
+          from: process.env.SMTP_FROM,
+        },
+        error: errorMessage,
+      });
+    }
+  }
 }

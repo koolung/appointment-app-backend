@@ -18,14 +18,17 @@ export class AuthController {
     return { message: 'Auth endpoint is working' };
   }
 
-  @Post('test-forgot-password')
+  @Post('test-smtp')
   @HttpCode(HttpStatus.OK)
-  async testForgotPassword(@Body() body: any) {
-    console.log('Test endpoint received body:', body);
-    console.log('Body keys:', Object.keys(body));
-    console.log('Email field:', body.email);
-    console.log('Email is valid email?:', /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email));
-    return { received: body, keys: Object.keys(body) };
+  async testSmtp() {
+    console.log('Testing SMTP configuration...');
+    try {
+      const result = await this.authService.testSmtpEmail();
+      return result;
+    } catch (error) {
+      console.error('SMTP test error:', error);
+      throw error;
+    }
   }
 
   @Post('sign-up')
