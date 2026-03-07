@@ -55,7 +55,9 @@ export class AvailabilityService {
       }
 
       // Use LOCAL time for consistency with how availability rules are stored
-      const dayOfWeek = startTimeDate.getDay();
+      // Convert JavaScript's getDay() (0=Sun) to schema convention (0=Mon)
+      const jsDay = startTimeDate.getDay();
+      const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
       const startTimeStr = `${String(startTimeDate.getHours()).padStart(2, '0')}:${String(startTimeDate.getMinutes()).padStart(2, '0')}`;
       const endTimeStr = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
 
@@ -116,7 +118,9 @@ export class AvailabilityService {
     date: Date,
     slotDurationMinutes: number = 15,
   ) {
-    const dayOfWeek = date.getDay();
+    // Convert JavaScript's getDay() (0=Sun) to schema convention (0=Mon)
+    const jsDay = date.getDay();
+    const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
     const slots: { start: string; end: string; isNextAvailable?: boolean }[] = [];
 
     // Get availability rules for this day
@@ -209,7 +213,9 @@ export class AvailabilityService {
       dateObj = date;
     }
     
-    const dayOfWeek = dateObj.getDay();
+    // Convert JavaScript's getDay() (0=Sun) to schema convention (0=Mon)
+    const jsDay = dateObj.getDay();
+    const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
 
     // Check for exception rules first
     const exceptionRule = await this.prisma.availabilityRule.findFirst({

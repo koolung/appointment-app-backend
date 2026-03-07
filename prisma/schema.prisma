@@ -138,7 +138,8 @@ model AvailabilityRule {
   employeeId  String
   employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   
-  // Weekly recurring rule (0=Monday, 6=Sunday)
+  // Weekly recurring rule (0=Monday, 1=Tuesday, 2=Wednesday, 3=Thursday, 4=Friday, 5=Saturday, 6=Sunday)
+  // DO NOT use JavaScript's getDay() directly - convert using: (jsDay === 0 ? 6 : jsDay - 1)
   dayOfWeek   Int
   startTime   String // HH:mm format
   endTime     String // HH:mm format
