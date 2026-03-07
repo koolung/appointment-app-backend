@@ -18,6 +18,16 @@ export class AuthController {
     return { message: 'Auth endpoint is working' };
   }
 
+  @Post('test-forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async testForgotPassword(@Body() body: any) {
+    console.log('Test endpoint received body:', body);
+    console.log('Body keys:', Object.keys(body));
+    console.log('Email field:', body.email);
+    console.log('Email is valid email?:', /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email));
+    return { received: body, keys: Object.keys(body) };
+  }
+
   @Post('sign-up')
   async signUp(@Body() dto: SignUpDto) {
     console.log('Sign up request received:', dto);
@@ -53,7 +63,19 @@ export class AuthController {
   @Post('forgot-password')
   @HttpCode(HttpStatus.OK)
   async forgotPassword(@Body() dto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(dto);
+    console.log('Forgot password request received:', { 
+      email: dto.email, 
+      dtoKeys: Object.keys(dto),
+      dtoType: typeof dto 
+    });
+    try {
+      const result = await this.authService.forgotPassword(dto);
+      console.log('Forgot password successful:', result);
+      return result;
+    } catch (error) {
+      console.error('Forgot password error:', error);
+      throw error;
+    }
   }
 
   @Post('reset-password')
