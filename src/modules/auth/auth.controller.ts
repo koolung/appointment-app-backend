@@ -2,6 +2,12 @@ import { Controller, Post, Body, HttpCode, HttpStatus, Get } from '@nestjs/commo
 import { AuthService } from './auth.service';
 import { SignUpDto } from './dto/sign-up.dto';
 import { SignInDto } from './dto/sign-in.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+
+interface ResetPasswordDto {
+  token: string;
+  newPassword: string;
+}
 
 @Controller('auth')
 export class AuthController {
@@ -42,5 +48,17 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async signIn(@Body() dto: SignInDto) {
     return this.authService.signIn(dto);
+  }
+
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  async forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto.token, dto.newPassword);
   }
 }

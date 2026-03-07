@@ -38,6 +38,7 @@ export class AvailabilityService {
     employeeId: string,
     startTime: Date | string,
     endTime: Date | string,
+    isAdminBooking: boolean = false,
   ): Promise<boolean> {
     try {
       // Convert to Date objects if they're strings
@@ -104,6 +105,18 @@ export class AvailabilityService {
         return true;
       }
 
+      // For admin bookings, only check that the appointment STARTS within available time
+      // Allows appointments to end outside the availability window
+      if (isAdminBooking) {
+        const isAvailable = startTimeStr >= weeklyRule.startTime && startTimeStr < weeklyRule.endTime;
+        console.log(
+          `Availability check for ADMIN BOOKING employee ${employeeId}:`,
+          `Day: ${dayOfWeek}, Start Time: ${startTimeStr}, Rule: ${weeklyRule.startTime}-${weeklyRule.endTime}, Available: ${isAvailable}`
+        );
+        return isAvailable;
+      }
+
+      // For client bookings, check that the entire appointment fits within available time
       const isAvailable = startTimeStr >= weeklyRule.startTime && endTimeStr <= weeklyRule.endTime;
       console.log(
         `Availability check for employee ${employeeId}:`,

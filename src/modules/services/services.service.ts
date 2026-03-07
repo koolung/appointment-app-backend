@@ -110,14 +110,17 @@ export class ServicesService {
   }
 
   async createService(data: any) {
-    // Ensure categoryId is not included or is null if not provided
     const serviceData: any = {
       name: data.name,
       description: data.description || null,
       price: data.price,
       baseDuration: data.baseDuration || 30,
-      // categoryId is intentionally left out/null
     };
+
+    // Include categoryId if provided
+    if (data.categoryId) {
+      serviceData.categoryId = data.categoryId;
+    }
 
     return this.prisma.service.create({
       data: serviceData,

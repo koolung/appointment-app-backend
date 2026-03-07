@@ -2,15 +2,29 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@/common/prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
+import * as nodemailer from 'nodemailer';
 import { SignUpDto } from './dto/sign-up.dto';
 import { SignInDto } from './dto/sign-in.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 @Injectable()
 export class AuthService {
+  private transporter: nodemailer.Transporter;
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
-  ) {}
+  ) {
+    this.transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'localhost',
+      port: parseInt(process.env.SMTP_PORT || '465'),
+      secure: true, // SSL/TLS
+      auth: {
+        user: process.env.SMTP_USER || 'test',
+        pass: process.env.SMTP_PASSWORD || 'test',
+      },
+    });
+  }
 
   async signUp(dto: SignUpDto) {
     console.log('AuthService.signUp called with:', dto);
@@ -144,5 +158,98 @@ export class AuthService {
       },
       token,
     };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const user = await this.prisma.user.findUnique({
+      where: { email: dto.email },
+    });
+
+    if (!user) {
+      throw new BadRequestException('Email not found');
+    }
+
+    // Generate a short-lived reset token (15 minutes)
+    const resetToken = this.jwtService.sign(
+      {
+        sub: user.id,
+        email: user.email,
+        type: 'reset',
+      },
+      { expiresIn: '15m' }
+    );
+
+    // Send reset email
+    await this.sendPasswordResetEmail(user.email, user.firstName || 'User', resetToken);
+
+    return {
+      message: 'Password reset link has been sent to your email. Please check your inbox.',
+    };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    try {
+      const payload = this.jwtService.verify(token);
+
+      if (payload.type !== 'reset') {
+        throw new UnauthorizedException('Invalid token type');
+      }
+
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+      });
+
+      if (!user) {
+        throw new UnauthorizedException('User not found');
+      }
+
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      await this.prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+        },
+      });
+
+      return {
+        message: 'Password has been successfully reset',
+      };
+    } catch (error) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+  }
+
+  private async sendPasswordResetEmail(email: string, firstName: string, resetToken: string) {
+    try {
+      const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+
+      const mailOptions = {
+        from: process.env.SMTP_FROM || 'noreply@salon-app.com',
+        to: email,
+        subject: 'Password Reset Request',
+        html: `
+          <h2>Password Reset Request</h2>
+          <p>Hi ${firstName || 'User'},</p>
+          <p>We received a request to reset your password. Click the link below to reset it:</p>
+          <p>
+            <a href="${resetLink}" style="background-color: #7c3aed; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+              Reset Password
+            </a>
+          </p>
+          <p>Or copy this link: <a href="${resetLink}">${resetLink}</a></p>
+          <p>This link will expire in 15 minutes.</p>
+          <p>If you didn't request this, please ignore this email.</p>
+          <p>Best regards,<br>Salon Appointment Team</p>
+        `,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log('Password reset email sent to:', email);
+    } catch (error) {
+      console.error('Error sending password reset email:', error);
+      // Don't throw error here - we don't want to expose email sending failures to users
+      // In production, you'd want to log this to an error tracking service
+    }
   }
 }

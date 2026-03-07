@@ -25,6 +25,7 @@ export class AppointmentsService {
     clientLastName?: string;
     clientEmail?: string;
     clientPhone?: string;
+    isAdminRequest?: boolean;
   }) {
     let finalEmployeeId: string;
     let clientRecordId: string;
@@ -132,12 +133,25 @@ export class AppointmentsService {
         }
       }
 
-      // Create a client record
-      const clientRecord = await this.prisma.client.create({
-        data: {
-          userId, // Can be null if no client info provided
-        },
-      });
+      // Create or find a client record for the user
+      let clientRecord;
+      
+      if (userId) {
+        clientRecord = await this.prisma.client.upsert({
+          where: { userId },
+          update: {}, // Don't update anything if exists
+          create: {
+            userId,
+          },
+        });
+      } else {
+        // Create a client record without userId (for guest bookings)
+        clientRecord = await this.prisma.client.create({
+          data: {
+            userId: null,
+          },
+        });
+      }
       clientRecordId = clientRecord.id;
     } else if (data.clientId) {
       // For regular clients, expect a valid clientId or userId
@@ -187,15 +201,24 @@ export class AppointmentsService {
       throw new BadRequestException('Either userId or clientId must be provided');
     }
 
+    // Determine if this is an admin booking
+    const isAdminBooking = data.isAdminRequest === true || data.clientId === 'temp-admin-booking';
+
     // If no preference, find an available employee for this time slot
     if (!data.employeeId) {
       const employees = await this.prisma.employee.findMany({
         where: { isActive: true },
       });
-
+      
       // Check each employee for availability
       let availableEmployee: any = null;
       for (const emp of employees) {
+        // For admin bookings, skip availability check and just pick first employee
+        if (isAdminBooking) {
+          availableEmployee = emp;
+          break;
+        }
+        
         const isAvailable = await this.availabilityService.checkAvailability(
           emp.id,
           data.startTime,
@@ -234,15 +257,16 @@ export class AppointmentsService {
     } else {
       finalEmployeeId = data.employeeId;
 
-      // Validate that employee is available
+      // Validate that employee is available (with relaxed rules for admin bookings)
       console.log(
-        `Checking availability for employee ${finalEmployeeId}: ${data.startTime} to ${data.endTime}`
+        `Checking availability for employee ${finalEmployeeId}: ${data.startTime} to ${data.endTime} (Admin: ${isAdminBooking})`
       );
       
       const isAvailable = await this.availabilityService.checkAvailability(
         finalEmployeeId,
         data.startTime,
         data.endTime,
+        isAdminBooking,
       );
 
       if (!isAvailable) {
