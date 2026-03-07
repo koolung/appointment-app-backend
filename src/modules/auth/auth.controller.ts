@@ -18,6 +18,7 @@ export class AuthController {
     return { message: 'Auth endpoint is working' };
   }
 
+  @Get('test-smtp')
   @Post('test-smtp')
   @HttpCode(HttpStatus.OK)
   async testSmtp() {
