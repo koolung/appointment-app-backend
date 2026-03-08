@@ -2,31 +2,25 @@ import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '@/common/prisma/prisma.service';
 import * as bcrypt from 'bcryptjs';
-import * as nodemailer from 'nodemailer';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 import { SignUpDto } from './dto/sign-up.dto';
 import { SignInDto } from './dto/sign-in.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 
 @Injectable()
 export class AuthService {
-  private transporter: nodemailer.Transporter;
+  private sesClient: SESClient;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
   ) {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'localhost',
-      port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: process.env.SMTP_SECURE !== 'false', // SSL/TLS - defaults to true
-      auth: {
-        user: process.env.SMTP_USER || 'test',
-        pass: process.env.SMTP_PASSWORD || 'test',
+    this.sesClient = new SESClient({
+      region: process.env.AWS_REGION || 'us-east-1',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
       },
-      connectionTimeout: 10000, // 10 seconds timeout
-      socketTimeout: 10000, // 10 seconds timeout
-      logger: process.env.NODE_ENV === 'development', // Log in dev mode
-      debug: process.env.NODE_ENV === 'development', // Debug in dev mode
     });
   }
 
@@ -228,28 +222,42 @@ export class AuthService {
     try {
       const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
 
-      const mailOptions = {
-        from: process.env.SMTP_FROM || 'noreply@salon-app.com',
-        to: email,
-        subject: 'Password Reset Request',
-        html: `
-          <h2>Password Reset Request</h2>
-          <p>Hi ${firstName || 'User'},</p>
-          <p>We received a request to reset your password. Click the link below to reset it:</p>
-          <p>
-            <a href="${resetLink}" style="background-color: #7c3aed; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-              Reset Password
-            </a>
-          </p>
-          <p>Or copy this link: <a href="${resetLink}">${resetLink}</a></p>
-          <p>This link will expire in 15 minutes.</p>
-          <p>If you didn't request this, please ignore this email.</p>
-          <p>Best regards,<br>Salon Appointment Team</p>
-        `,
-      };
+      const htmlContent = `
+        <h2>Password Reset Request</h2>
+        <p>Hi ${firstName || 'User'},</p>
+        <p>We received a request to reset your password. Click the link below to reset it:</p>
+        <p>
+          <a href="${resetLink}" style="background-color: #7c3aed; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            Reset Password
+          </a>
+        </p>
+        <p>Or copy this link: <a href="${resetLink}">${resetLink}</a></p>
+        <p>This link will expire in 15 minutes.</p>
+        <p>If you didn't request this, please ignore this email.</p>
+        <p>Best regards,<br>Salon Appointment Team</p>
+      `;
 
-      const info = await this.transporter.sendMail(mailOptions);
-      console.log('Password reset email sent to:', email, 'Message ID:', info.messageId);
+      const command = new SendEmailCommand({
+        Source: process.env.AWS_SES_FROM_EMAIL || 'noreply@salon-app.com',
+        Destination: {
+          ToAddresses: [email],
+        },
+        Message: {
+          Subject: {
+            Data: 'Password Reset Request',
+            Charset: 'UTF-8',
+          },
+          Body: {
+            Html: {
+              Data: htmlContent,
+              Charset: 'UTF-8',
+            },
+          },
+        },
+      });
+
+      const info = await this.sesClient.send(command);
+      console.log('Password reset email sent to:', email, 'Message ID:', info.MessageId);
       return info;
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
@@ -262,35 +270,47 @@ export class AuthService {
 
   async testSmtpEmail() {
     try {
-      console.log('Testing SMTP with config:', {
-        host: process.env.SMTP_HOST,
-        port: process.env.SMTP_PORT,
-        user: process.env.SMTP_USER,
-        from: process.env.SMTP_FROM,
+      console.log('Testing AWS SES configuration...');
+      console.log('AWS Config:', {
+        region: process.env.AWS_REGION,
+        fromEmail: process.env.AWS_SES_FROM_EMAIL,
       });
 
-      const mailOptions = {
-        from: process.env.SMTP_FROM || 'noreply@salon-app.com',
-        to: 'info@bedfordwebservices.com',
-        subject: 'Salon App SMTP Test',
-        html: `
-          <h2>SMTP Test Email</h2>
-          <p>This is a test email from the Salon Appointment App</p>
-          <p><strong>Sent at:</strong> ${new Date().toISOString()}</p>
-          <p><strong>From Email:</strong> ${process.env.SMTP_FROM}</p>
-          <p><strong>Environment:</strong> ${process.env.NODE_ENV}</p>
-          <p>If you received this, your SMTP configuration is working correctly!</p>
-        `,
-      };
+      const command = new SendEmailCommand({
+        Source: process.env.AWS_SES_FROM_EMAIL || 'noreply@salon-app.com',
+        Destination: {
+          ToAddresses: ['info@bedfordwebservices.com'],
+        },
+        Message: {
+          Subject: {
+            Data: 'Salon App AWS SES Test',
+            Charset: 'UTF-8',
+          },
+          Body: {
+            Html: {
+              Data: `
+                <h2>AWS SES Test Email</h2>
+                <p>This is a test email from the Salon Appointment App using AWS SES</p>
+                <p><strong>Sent at:</strong> ${new Date().toISOString()}</p>
+                <p><strong>From Email:</strong> ${process.env.AWS_SES_FROM_EMAIL}</p>
+                <p><strong>Environment:</strong> ${process.env.NODE_ENV}</p>
+                <p><strong>AWS Region:</strong> ${process.env.AWS_REGION}</p>
+                <p>If you received this, your AWS SES configuration is working correctly!</p>
+              `,
+              Charset: 'UTF-8',
+            },
+          },
+        },
+      });
 
       console.log('Sending test email to info@bedfordwebservices.com...');
-      const info = await this.transporter.sendMail(mailOptions);
-      console.log('Test email sent successfully! Message ID:', info.messageId);
-      
+      const info = await this.sesClient.send(command);
+      console.log('Test email sent successfully! Message ID:', info.MessageId);
+
       return {
         success: true,
         message: 'Test email sent successfully to info@bedfordwebservices.com',
-        messageId: info.messageId,
+        messageId: info.MessageId,
         timestamp: new Date().toISOString(),
       };
     } catch (error) {
@@ -299,10 +319,9 @@ export class AuthService {
       throw new BadRequestException({
         success: false,
         message: `Failed to send test email: ${errorMessage}`,
-        smtpConfig: {
-          host: process.env.SMTP_HOST,
-          port: process.env.SMTP_PORT,
-          from: process.env.SMTP_FROM,
+        awsConfig: {
+          region: process.env.AWS_REGION,
+          fromEmail: process.env.AWS_SES_FROM_EMAIL,
         },
         error: errorMessage,
       });

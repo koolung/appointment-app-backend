@@ -24,6 +24,7 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
+    "@aws-sdk/client-ses": "^3.1004.0",
     "@nestjs/bull": "^10.0.1",
     "@nestjs/common": "^10.2.10",
     "@nestjs/config": "^4.0.2",
