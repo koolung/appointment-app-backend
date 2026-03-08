@@ -1,21 +1,49 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/common/prisma/prisma.service';
-import * as nodemailer from 'nodemailer';
+import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
 
 @Injectable()
 export class NotificationsService {
-  private transporter: nodemailer.Transporter;
+  private sesClient: SESClient;
 
   constructor(private readonly prisma: PrismaService) {
-    this.transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'localhost',
-      port: parseInt(process.env.SMTP_PORT || '465'),
-      secure: true, // SSL/TLS
-      auth: {
-        user: process.env.SMTP_USER || 'test',
-        pass: process.env.SMTP_PASSWORD || 'test',
+    this.sesClient = new SESClient({
+      region: process.env.AWS_REGION || 'us-east-2',
+      credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
+        secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
       },
     });
+  }
+
+  private async sendEmail(to: string, subject: string, html: string) {
+    try {
+      const command = new SendEmailCommand({
+        Source: process.env.AWS_SES_FROM_EMAIL || 'noreply@salon-app.com',
+        Destination: {
+          ToAddresses: [to],
+        },
+        Message: {
+          Subject: {
+            Data: subject,
+            Charset: 'UTF-8',
+          },
+          Body: {
+            Html: {
+              Data: html,
+              Charset: 'UTF-8',
+            },
+          },
+        },
+      });
+
+      const info = await this.sesClient.send(command);
+      console.log(`Email sent to ${to}. Message ID: ${info.MessageId}`);
+      return info;
+    } catch (error) {
+      console.error(`Error sending email to ${to}:`, error);
+      throw error;
+    }
   }
 
   async sendBookingConfirmation(appointmentId: string) {
@@ -280,12 +308,7 @@ export class NotificationsService {
       </html>
     `;
 
-    await this.transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to: appointment.client.user.email,
-      subject,
-      html,
-    });
+    await this.sendEmail(appointment.client.user.email, subject, html);
   }
 
   async sendBookingModification(appointmentId: string) {
@@ -322,12 +345,7 @@ export class NotificationsService {
       </ul>
     `;
 
-    await this.transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to: appointment.client.user.email,
-      subject,
-      html,
-    });
+    await this.sendEmail(appointment.client.user.email, subject, html);
   }
 
   async sendBookingCancellation(appointmentId: string) {
@@ -354,12 +372,7 @@ export class NotificationsService {
       <p>If you have any questions, please contact us.</p>
     `;
 
-    await this.transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to: appointment.client.user.email,
-      subject,
-      html,
-    });
+    await this.sendEmail(appointment.client.user.email, subject, html);
   }
 
   async sendReminderNotification(appointmentId: string) {
@@ -403,11 +416,6 @@ export class NotificationsService {
       <p>See you soon!</p>
     `;
 
-    await this.transporter.sendMail({
-      from: process.env.SMTP_FROM,
-      to: appointment.client.user.email,
-      subject,
-      html,
-    });
+    await this.sendEmail(appointment.client.user.email, subject, html);
   }
 }
