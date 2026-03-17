@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/common/prisma/prisma.service';
+import { parseDateInTimezone, getDayOfWeekInTimezone, formatTimeInTimezone } from '@/common/utils/timezone';
 
 @Injectable()
 export class AvailabilityService {
@@ -132,18 +133,26 @@ export class AvailabilityService {
   /**
    * Get available time slots for an employee on a specific date
    * Excludes slots that have existing appointments
+   * @param employeeId - The employee ID
+   * @param dateString - Date string in YYYY-MM-DD format
+   * @param slotDurationMinutes - Duration of each slot in minutes
+   * @param timezone - IANA timezone string (e.g., 'America/Halifax')
    */
   async getAvailableSlots(
     employeeId: string,
-    date: Date,
+    dateString: string,
     slotDurationMinutes: number = 15,
+    timezone: string = 'UTC',
   ) {
-    // Convert JavaScript's getDay() (0=Sun) to schema convention (0=Mon)
-    const jsDay = date.getDay();
-    const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+    // Parse the date in the user's timezone
+    const dateInUserTz = parseDateInTimezone(dateString, timezone);
+    
+    // Get the day of week in the user's timezone
+    const dayOfWeek = getDayOfWeekInTimezone(dateString, timezone);
+    
     const slots: { start: string; end: string; isNextAvailable?: boolean }[] = [];
 
-    // Get availability rules for this day
+    // Query for availability rules for this day
     const rules = await this.prisma.availabilityRule.findMany({
       where: {
         employeeId,
@@ -152,8 +161,8 @@ export class AvailabilityService {
           {
             isException: true,
             exceptionDate: {
-              gte: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
-              lt: new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1),
+              gte: dateInUserTz,
+              lt: new Date(dateInUserTz.getTime() + 24 * 60 * 60 * 1000),
             },
           },
         ],
@@ -168,25 +177,30 @@ export class AvailabilityService {
     const [startHour, startMin] = rule.startTime.split(':').map(Number);
     const [endHour, endMin] = rule.endTime.split(':').map(Number);
 
-    // Fetch all appointments for this employee on this date
+    // Create start and end times for the day in UTC
+    // These represent the local times in the user's timezone
+    const dayStartUTC = dateInUserTz;
+    const startTimeUTC = new Date(dayStartUTC.getTime() + startHour * 60 * 60 * 1000 + startMin * 60 * 1000);
+    const endTimeUTC = new Date(dayStartUTC.getTime() + endHour * 60 * 60 * 1000 + endMin * 60 * 1000);
+
+    // Fetch all appointments for this employee on this date (using UTC day boundaries)
     const appointments = await this.prisma.appointment.findMany({
       where: {
         employeeId,
         startTime: {
-          gte: new Date(date.getFullYear(), date.getMonth(), date.getDate()),
-          lt: new Date(date.getFullYear(), date.getMonth(), date.getDate() + 1),
+          gte: dateInUserTz,
+          lt: new Date(dateInUserTz.getTime() + 24 * 60 * 60 * 1000),
         },
       },
     });
 
-    let currentTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), startHour, startMin, 0, 0);
-    const endTime = new Date(date.getFullYear(), date.getMonth(), date.getDate(), endHour, endMin, 0, 0);
-
+    let currentTime = new Date(startTimeUTC);
+    const endTime = new Date(endTimeUTC);
     let isFirstAvailable = true;
     const now = new Date();
 
     while (currentTime < endTime) {
-      const slotEnd = new Date(currentTime.getTime() + slotDurationMinutes * 60000);
+      const slotEnd = new Date(currentTime.getTime() + slotDurationMinutes * 60 * 1000);
       if (slotEnd <= endTime) {
         // Check if this slot conflicts with any appointment
         const isBooked = appointments.some(
@@ -221,21 +235,16 @@ export class AvailabilityService {
    * Get working hours for an employee on a specific date
    * Returns the startTime and endTime based on availability rules
    * Returns null if employee has a full day off (00:00 - 00:00)
+   * @param employeeId - The employee ID
+   * @param dateString - Date string in YYYY-MM-DD format
+   * @param timezone - IANA timezone string
    */
-  async getWorkingHours(employeeId: string, date: Date | string) {
-    let dateObj: Date;
+  async getWorkingHours(employeeId: string, dateString: string, timezone: string = 'UTC') {
+    // Parse the date in the user's timezone
+    const dateInUserTz = parseDateInTimezone(dateString, timezone);
     
-    if (typeof date === 'string') {
-      // Parse date string as local date (YYYY-MM-DD format)
-      const [year, month, day] = date.split('-').map(Number);
-      dateObj = new Date(year, month - 1, day);
-    } else {
-      dateObj = date;
-    }
-    
-    // Convert JavaScript's getDay() (0=Sun) to schema convention (0=Mon)
-    const jsDay = dateObj.getDay();
-    const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
+    // Get the day of week in the user's timezone
+    const dayOfWeek = getDayOfWeekInTimezone(dateString, timezone);
 
     // Check for exception rules first
     const exceptionRule = await this.prisma.availabilityRule.findFirst({
@@ -243,8 +252,8 @@ export class AvailabilityService {
         employeeId,
         isException: true,
         exceptionDate: {
-          gte: new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()),
-          lt: new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate() + 1),
+          gte: dateInUserTz,
+          lt: new Date(dateInUserTz.getTime() + 24 * 60 * 60 * 1000),
         },
       },
     });

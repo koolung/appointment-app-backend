@@ -9,9 +9,11 @@ export class AvailabilityController {
   async getWorkingHours(
     @Param('employeeId') employeeId: string,
     @Query('date') date?: string,
+    @Query('timezone') timezone?: string,
   ) {
-    const queryDate = date || new Date().toISOString().split('T')[0];
-    return this.availabilityService.getWorkingHours(employeeId, queryDate);
+    const dateString = date || new Date().toISOString().split('T')[0];
+    const userTimezone = timezone || 'UTC';
+    return this.availabilityService.getWorkingHours(employeeId, dateString, userTimezone);
   }
 
   @Get('slots/:employeeId')
@@ -21,23 +23,16 @@ export class AvailabilityController {
     @Query('duration') duration?: string,
     @Query('timezone') timezone?: string,
   ) {
-    let slotDate: Date;
-    
-    if (date) {
-      // Parse date string as local date (YYYY-MM-DD format)
-      const [year, month, day] = date.split('-').map(Number);
-      slotDate = new Date(year, month - 1, day);
-    } else {
-      const now = new Date();
-      slotDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    }
-    
+    const dateString = date || new Date().toISOString().split('T')[0];
     const slotDuration = parseInt(duration || '15', 10);
+    const userTimezone = timezone || 'UTC';
     
-    // TODO: Use timezone parameter for future timezone conversion
-    // For now, store timezone for audit but use server-side dates
-    
-    return this.availabilityService.getAvailableSlots(employeeId, slotDate, slotDuration);
+    return this.availabilityService.getAvailableSlots(
+      employeeId,
+      dateString,
+      slotDuration,
+      userTimezone,
+    );
   }
 
   @Get(':employeeId')
