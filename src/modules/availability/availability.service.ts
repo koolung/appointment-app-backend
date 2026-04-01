@@ -1,10 +1,23 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '@/common/prisma/prisma.service';
 import { parseDateInTimezone, getDayOfWeekInTimezone, formatTimeInTimezone } from '@/common/utils/timezone';
+import { getTimezoneOffset } from 'date-fns-tz';
 
 @Injectable()
 export class AvailabilityService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Get the local date string (YYYY-MM-DD) for a UTC date in a given timezone.
+   */
+  private getLocalDateString(utcDate: Date, timezone: string): string {
+    const offsetMs = getTimezoneOffset(timezone, utcDate);
+    const localDate = new Date(utcDate.getTime() + offsetMs);
+    const year = localDate.getUTCFullYear();
+    const month = String(localDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(localDate.getUTCDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  }
 
   async getAvailabilityRules(employeeId: string) {
     return this.prisma.availabilityRule.findMany({
@@ -40,6 +53,7 @@ export class AvailabilityService {
     startTime: Date | string,
     endTime: Date | string,
     isAdminBooking: boolean = false,
+    timezone: string = 'UTC',
   ): Promise<boolean> {
     try {
       // Convert to Date objects if they're strings
@@ -56,24 +70,20 @@ export class AvailabilityService {
         return false;
       }
 
-      // Use LOCAL time for consistency with how availability rules are stored
-      // Convert JavaScript's getDay() (0=Sun) to schema convention (0=Mon)
-      const jsDay = startTimeDate.getDay();
-      const dayOfWeek = jsDay === 0 ? 6 : jsDay - 1;
-      const startTimeStr = `${String(startTimeDate.getHours()).padStart(2, '0')}:${String(startTimeDate.getMinutes()).padStart(2, '0')}`;
-      const endTimeStr = `${String(endTimeDate.getHours()).padStart(2, '0')}:${String(endTimeDate.getMinutes()).padStart(2, '0')}`;
+      // Convert UTC dates to the salon/client timezone for comparison with availability rules
+      // Availability rules store times in local timezone (e.g., "09:00"-"17:00")
+      const startTimeStr = formatTimeInTimezone(startTimeDate, timezone);
+      const endTimeStr = formatTimeInTimezone(endTimeDate, timezone);
 
-      // Create valid date objects for exception rule query
-      const exceptionDateStart = new Date(
-        startTimeDate.getFullYear(),
-        startTimeDate.getMonth(),
-        startTimeDate.getDate(),
-      );
-      const exceptionDateEnd = new Date(
-        startTimeDate.getFullYear(),
-        startTimeDate.getMonth(),
-        startTimeDate.getDate() + 1,
-      );
+      // Get day of week in the correct timezone
+      // Use timezone-aware date string for day-of-week and exception date lookups
+      // We need the local date in the salon's timezone, not the server's UTC date
+      const localDateStr = this.getLocalDateString(startTimeDate, timezone);
+      const dayOfWeek = getDayOfWeekInTimezone(localDateStr, timezone);
+
+      // Create valid date objects for exception rule query using timezone-aware date
+      const exceptionDateStart = parseDateInTimezone(localDateStr, timezone);
+      const exceptionDateEnd = new Date(exceptionDateStart.getTime() + 24 * 60 * 60 * 1000);
 
       // Check for exception rules first
       const exceptionRule = await this.prisma.availabilityRule.findFirst({

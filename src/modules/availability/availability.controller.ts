@@ -56,10 +56,10 @@ export class AvailabilityController {
   }
 
   @Post('check')
-  async checkAvailability(@Body() data: { employeeId: string; startTime: string; endTime: string }) {
+  async checkAvailability(@Body() data: { employeeId: string; startTime: string; endTime: string; timezone?: string }) {
     const startTime = new Date(data.startTime);
     const endTime = new Date(data.endTime);
-    return this.availabilityService.checkAvailability(data.employeeId, startTime, endTime);
+    return this.availabilityService.checkAvailability(data.employeeId, startTime, endTime, false, data.timezone || 'UTC');
   }
 }
 

@@ -223,6 +223,8 @@ export class AppointmentsService {
           emp.id,
           data.startTime,
           data.endTime,
+          false,
+          data.clientTimezone || 'UTC',
         );
 
         if (isAvailable) {
@@ -259,7 +261,7 @@ export class AppointmentsService {
 
       // Validate that employee is available (with relaxed rules for admin bookings)
       console.log(
-        `Checking availability for employee ${finalEmployeeId}: ${data.startTime} to ${data.endTime} (Admin: ${isAdminBooking})`
+        `Checking availability for employee ${finalEmployeeId}: ${data.startTime} to ${data.endTime} (Admin: ${isAdminBooking}, TZ: ${data.clientTimezone || 'UTC'})`
       );
       
       const isAvailable = await this.availabilityService.checkAvailability(
@@ -267,6 +269,7 @@ export class AppointmentsService {
         data.startTime,
         data.endTime,
         isAdminBooking,
+        data.clientTimezone || 'UTC',
       );
 
       if (!isAvailable) {
@@ -464,6 +467,8 @@ export class AppointmentsService {
       appointment.employeeId,
       newStartTime,
       newEndTime,
+      false,
+      appointment.clientTimezone || 'UTC',
     );
 
     if (!isAvailable) {
@@ -520,6 +525,8 @@ export class AppointmentsService {
           employeeId,
           newStartTime,
           newEndTime,
+          false,
+          appointment.clientTimezone || 'UTC',
         );
 
         if (!isAvailable) {
