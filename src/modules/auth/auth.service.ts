@@ -327,4 +327,98 @@ export class AuthService {
       });
     }
   }
+
+  async guestActivate(email: string, password: string) {
+    if (!email || !password) {
+      throw new BadRequestException('Email and password are required');
+    }
+
+    if (password.length < 8) {
+      throw new BadRequestException('Password must be at least 8 characters');
+    }
+
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      throw new BadRequestException('No account found with this email');
+    }
+
+    // Only allow activation for guest accounts (empty password)
+    if (user.password && user.password.length > 0) {
+      throw new BadRequestException('This account already has a password. Please sign in instead.');
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    await this.prisma.user.update({
+      where: { id: user.id },
+      data: { password: hashedPassword },
+    });
+
+    const token = this.jwtService.sign({
+      sub: user.id,
+      email: user.email,
+      role: user.role,
+    });
+
+    // Send account activation confirmation email
+    await this.sendAccountActivatedEmail(email, user.firstName || 'Guest');
+
+    return {
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+      token,
+    };
+  }
+
+  private async sendAccountActivatedEmail(email: string, firstName: string) {
+    try {
+      const loginLink = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/login`;
+
+      const htmlContent = `
+        <h2>Your Account Has Been Created!</h2>
+        <p>Hi ${firstName},</p>
+        <p>Your account has been successfully activated. You can now sign in to manage your appointments, view booking history, and more.</p>
+        <p>
+          <a href="${loginLink}" style="background-color: #35514e; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
+            Sign In Now
+          </a>
+        </p>
+        <p>Or visit: <a href="${loginLink}">${loginLink}</a></p>
+        <p>Best regards,<br>Salon Appointment Team</p>
+      `;
+
+      const command = new SendEmailCommand({
+        Source: process.env.AWS_SES_FROM_EMAIL || 'noreply@salon-app.com',
+        Destination: {
+          ToAddresses: [email],
+        },
+        Message: {
+          Subject: {
+            Data: 'Your Account Has Been Created',
+            Charset: 'UTF-8',
+          },
+          Body: {
+            Html: {
+              Data: htmlContent,
+              Charset: 'UTF-8',
+            },
+          },
+        },
+      });
+
+      const info = await this.sesClient.send(command);
+      console.log('Account activation email sent to:', email, 'Message ID:', info.MessageId);
+    } catch (error) {
+      console.error('Failed to send account activation email:', error);
+      // Don't throw - account is already activated, email is just a notification
+    }
+  }
 }

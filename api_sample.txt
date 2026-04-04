@@ -1,0 +1,77 @@
+{
+    "id": "cmmfbd0ig000n13bpxfh5p4vx",
+    "clientId": "cmmfbd0gu000l13bpjj9oooe2",
+    "employeeId": "cmmfb8v0i000213bpxlo77p5e",
+    "startTime": "2026-03-06T15:15:00.000Z",
+    "endTime": "2026-03-06T16:15:00.000Z",
+    "status": "PENDING",
+    "bookingSource": "ADMIN",
+    "clientTimezone": "UTC",
+    "notes": "",
+    "createdAt": "2026-03-06T19:54:57.113Z",
+    "updatedAt": "2026-03-06T19:54:57.113Z",
+    "services": [
+        {
+            "id": "cmmfbd0ih000p13bpor4pd8yo",
+            "appointmentId": "cmmfbd0ig000n13bpxfh5p4vx",
+            "serviceId": "cmmfbaj7x000h13bpw14t4lfz",
+            "duration": 15,
+            "price": 30,
+            "service": {
+                "id": "cmmfbaj7x000h13bpw14t4lfz",
+                "name": "Men's Haircut",
+                "description": "Men's haircut.  Price may vary depending on the hair length.",
+                "categoryId": "cmmfbaq1h000i13bpz47q6r4b",
+                "price": 30,
+                "baseDuration": 15,
+                "bufferBefore": 0,
+                "bufferAfter": 0,
+                "isActive": true,
+                "createdAt": "2026-03-06T19:53:01.381Z",
+                "updatedAt": "2026-03-07T18:12:09.031Z"
+            }
+        }
+    ],
+    "client": {
+        "id": "cmmfbd0gu000l13bpjj9oooe2",
+        "userId": "cmmfbd0gg000j13bprbbt1fu8",
+        "preferences": null,
+        "createdAt": "2026-03-06T19:54:57.055Z",
+        "updatedAt": "2026-03-06T19:54:57.055Z",
+        "user": {
+            "id": "cmmfbd0gg000j13bprbbt1fu8",
+            "email": "taeyun.koolung@gmail.com",
+            "password": "$2a$10$Fj2VrvlibMZSScIVoUteSeCyf5xKch0ttdJIreYzPTl23q3ub0EE.",
+            "firstName": "Tae Hyun",
+            "lastName": "Yun",
+            "phone": "9024122260",
+            "avatar": null,
+            "role": "CLIENT",
+            "createdAt": "2026-03-06T19:54:57.040Z",
+            "updatedAt": "2026-03-07T17:37:26.727Z"
+        }
+    },
+    "employee": {
+        "id": "cmmfb8v0i000213bpxlo77p5e",
+        "userId": "cmmfb8v01000013bp269xjeby",
+        "position": "Hairstylist",
+        "bio": "Jani",
+        "hourlyRate": null,
+        "isActive": true,
+        "createdAt": "2026-03-06T19:51:43.362Z",
+        "updatedAt": "2026-03-07T18:26:52.803Z",
+        "user": {
+            "id": "cmmfb8v01000013bp269xjeby",
+            "email": "koolung43@gmail.com",
+            "password": "temp_password_123",
+            "firstName": "Jani",
+            "lastName": "Yun",
+            "phone": "9029896949",
+            "avatar": null,
+            "role": "EMPLOYEE",
+            "createdAt": "2026-03-06T19:51:43.339Z",
+            "updatedAt": "2026-03-06T19:51:43.339Z"
+        }
+    },
+    "payments": []
+}

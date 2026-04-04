@@ -87,4 +87,10 @@ export class AuthController {
   async resetPassword(@Body() dto: ResetPasswordDto) {
     return this.authService.resetPassword(dto.token, dto.newPassword);
   }
+
+  @Post('guest-activate')
+  @HttpCode(HttpStatus.OK)
+  async guestActivate(@Body() dto: { email: string; password: string }) {
+    return this.authService.guestActivate(dto.email, dto.password);
+  }
 }
